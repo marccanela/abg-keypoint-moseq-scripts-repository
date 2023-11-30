@@ -15,11 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.stats import wasserstein_distance
 
-# blue color storytelling = #194680
-# red color storytelling = #801946
-# grey color storytelling = #636466
-
-directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_1/"
+directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_2/"
 
 
 def get_syllable_list(csv_path, total_bins, bin_num):
@@ -39,16 +35,11 @@ def get_syllable_list(csv_path, total_bins, bin_num):
 def combining_syllables(df):
     
     # List of columns to sum
-    sum1 = ['24', '37']
-    sum2 = ['15', '16', '18']
-    sum3 = ['21', '28']
-    sum4 = ['7', '29', '4', '10']
-    sum5 = ['8', '12']
-    sum6 = ['22', '0', '13', '1', '6', '35', '3', '9']
-    sum7 = ['32', '33']   
-    sum8 = ['2', '11']
-    
-    cols = [sum1, sum2, sum3, sum4, sum5, sum6, sum7, sum8]
+    cols = [
+        ['0','1','6','13'],
+        ['2','10','11','12','14','22','28','29','32','33','34','35','36','37'],
+        ['4','7','15','16','18','21','24'],
+            ]
     
     for col in cols:
         # Create a new column with the sum
@@ -92,11 +83,17 @@ def count_frames_syllable(total_bins, bin_num): #bin_num starting from zero
     # Sort by order all columns
     df.columns = df.columns.astype(int)
     df = df.reindex(sorted(df.columns), axis=1)
-    df = df.loc[:, 0:38] # Select only 39 syllables of the dendrogram
+    # df = df.loc[:, 0:39] # Select only x syllables of the dendrogram
     df.columns = df.columns.astype(str)
     
+    # Drop artifact columns
+    # df = df.drop('3', axis=1)
+    # df = df.drop('9', axis=1)
+    # df = df.drop('20', axis=1)
+    # df = df.drop('23', axis=1)
+    
     # Combining similar syllables into one
-    df = combining_syllables(df)
+    # df = combining_syllables(df)
     
     # Upload target (aka, conditions or group)
     txt_path = os.path.join(directory, 'target.txt')
@@ -120,7 +117,6 @@ def count_frames_syllable(total_bins, bin_num): #bin_num starting from zero
 def standarize_the_data(df):
     
     df = df.dropna(axis=1)
-    
     features = df.columns[:-1].tolist()
 
     # Separating out the features
@@ -141,6 +137,16 @@ def pca_projection_2D(x, df):
     principalComponents = pca.fit_transform(x)
     principalDf = pd.DataFrame(data = principalComponents, columns = ['principal component 1', 'principal component 2'])
     finalDf = pd.concat([principalDf, df[['target']]], axis = 1)
+    
+    # Print the loadings (correlation between features and principal components)
+    loadings = pca.components_
+    features = df.columns[:-1]
+
+    print("Top features contributing to PC1:")
+    print(features[np.abs(loadings[0, :]).argsort()[::-1]])
+
+    print("\nTop features contributing to PC2:")
+    print(features[np.abs(loadings[1, :]).argsort()[::-1]])
     
     return finalDf, pca
 
@@ -199,6 +205,7 @@ def plot_pca(ax=None):
     
     df = pd.concat([df1, df2, df3, df4, df5, df6, df7, df8, df9, df10, df11, df12], axis=0)
     df = df.reset_index()
+    df = df.drop('index', axis=1)
     # Reorder columns to move 'target' to the end
     columns = df.columns.tolist()
     columns.remove('target')
@@ -221,11 +228,15 @@ def plot_pca(ax=None):
                'During: direct no-shock', 'During: mediated no-shock']
     colors = ['#FFFFFF00', '#FFFFFF00',
               '#FFFFFF00', '#FFFFFF00',
-              '#636466', '#FFFFFF00',
+              '#FFFFFF00', '#636466',
               '#FFFFFF00', '#FFFFFF00',
               '#FFFFFF00', '#FFFFFF00',
-              '#801946', '#FFFFFF00']
-        
+              '#FFFFFF00', '#194680']
+    
+    # blue color storytelling = #194680
+    # red color storytelling = #801946
+    # grey color storytelling = #636466
+    
     sns.set_theme(style="whitegrid")
     ax.yaxis.grid(True)
     ax.xaxis.grid(True)
@@ -240,8 +251,8 @@ def plot_pca(ax=None):
     ax.set_ylabel('PC2 (EV: ' + str(pc2)[:4] + ')', loc='top')
     ax.set_title(title, loc = 'left', color='#636466')
     
-    plt.xlim(-10,10)
-    plt.ylim(-10,10)
+    plt.xlim(-6,6)
+    plt.ylim(-6,6)
     
     # Remove the top and right spines
     ax.spines['top'].set_visible(False)
@@ -291,19 +302,16 @@ def plot_pca(ax=None):
     
     # Calculate Wasserstein distance
     wasserstein_dist = wasserstein_distance(distributions[0].ravel(), distributions[1].ravel())
+    wasserstein_text = 'Wasserstein distance = ' + str(wasserstein_dist)[:4]
+    ax.text(-5, -5, wasserstein_text, color='#636466', fontsize=11)
     
     ax.grid()
     
     plt.tight_layout()
-    return ax, wasserstein_dist
+    return ax
     
     
-
-
-
-
-
-
+plot_pca(ax=None)
 
 
 
