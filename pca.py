@@ -14,8 +14,9 @@ import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.stats import wasserstein_distance
+from scipy.stats import mannwhitneyu
 
-directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_2/"
+directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_1/"
 
 
 def get_syllable_list(csv_path, total_bins, bin_num):
@@ -83,7 +84,7 @@ def count_frames_syllable(total_bins, bin_num): #bin_num starting from zero
     # Sort by order all columns
     df.columns = df.columns.astype(int)
     df = df.reindex(sorted(df.columns), axis=1)
-    # df = df.loc[:, 0:39] # Select only x syllables of the dendrogram
+    df = df.loc[:, 0:39] # Select only x syllables of the dendrogram
     df.columns = df.columns.astype(str)
     
     # Drop artifact columns
@@ -151,7 +152,7 @@ def pca_projection_2D(x, df):
     return finalDf, pca
 
 
-def plot_pca(ax=None):
+def counts_df():
     
     df1 = count_frames_syllable(total_bins=6, bin_num=2)
     df1 = df1[df1.target == 'Direct_Paired']
@@ -211,6 +212,130 @@ def plot_pca(ax=None):
     columns.remove('target')
     columns.append('target')
     df = df[columns]
+    
+    return df
+
+
+def statistics_on_the_enrichment(df, numeric_columns, groups):
+    
+    # Perform Mann-Whitney U test for each pair of columns
+    results = []
+    
+    for col in numeric_columns.columns:
+        group1 = df[df['target'] == groups[0]][col]
+        group2 = df[df['target'] == groups[1]][col]
+    
+        stat, p_value = mannwhitneyu(group1, group2)
+        results.append({'Variable': col, 'Statistic': stat, 'P-Value': round(p_value, 3)})
+    
+    results_df = pd.DataFrame(results)
+    
+    # Filter significant syllables (p-value less than 0.05)
+    significant_syllables = results_df[results_df['P-Value'] < 0.05]['Variable'].tolist()
+    
+    # Categorize significant syllables based on increase or decrease
+    increased_syllables = []
+    decreased_syllables = []
+    
+    for syllable in significant_syllables:
+        group1_mean = df[df['target'] == groups[0]][syllable].mean()
+        group2_mean = df[df['target'] == groups[1]][syllable].mean()
+    
+        if group2_mean > group1_mean:
+            increased_syllables.append(syllable)
+        else:
+            decreased_syllables.append(syllable)
+    
+    significant = increased_syllables + decreased_syllables
+
+    return results_df, significant, increased_syllables, decreased_syllables
+
+
+def enrichment_plot(ax=None):
+    
+    df = counts_df()
+    targets = [
+        # 'Before: direct paired', 'During: direct paired',
+        # 'Before: mediated paired', 'During: mediated paired',
+        # 'Before: direct unpaired', 'During: direct unpaired',
+        # 'Before: mediated unpaired', 'During: mediated unpaired',
+        # 'Before: direct no-shock', 'During: direct no-shock',
+        'Before: mediated no-shock', 'During: mediated no-shock',
+        ]
+    df = df[df.target.isin(targets)]
+    groups = df['target'].unique()
+    numeric_columns = df.select_dtypes(include='number')
+    
+    # Reshape the DataFrame to have a separate column for each numeric column and each group
+    reshaped_df = pd.DataFrame(columns=['Variable', 'Group', 'Value'])
+    
+    for col in numeric_columns.columns:
+        for group in groups:
+            subset = df[df['target'] == group][col]
+            reshaped_df = pd.concat([reshaped_df, pd.DataFrame({'Variable': [col] * len(subset),
+                                                                'Group': [group] * len(subset),
+                                                                'Value': subset.values})])
+            
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10,6))
+        
+    # blue color storytelling = #194680
+    # red color storytelling = #801946
+    # grey color storytelling = #636466
+    custom_palette = ['#636466', '#194680']
+    sns.set(style="whitegrid")
+    sns.set_palette(custom_palette)
+    
+    # Create the bar plot
+    sns.barplot(x='Variable', y='Value', hue='Group', data=reshaped_df)
+    
+    # Perform a statistics on the enrichment
+    results_df, significant, increased_syllables, decreased_syllables = statistics_on_the_enrichment(df, numeric_columns, groups)
+    
+    # Add significance stars and adjust bar heights
+    for col in numeric_columns.columns:
+        if col in significant:
+            group1_mean = df[df['target'] == groups[0]][col].mean()
+            group2_mean = df[df['target'] == groups[1]][col].mean()
+            p_value = results_df[results_df['Variable'] == col]['P-Value'].values[0]
+            height = max(group1_mean, group2_mean) + 50  # Adjust as needed
+            
+            # Add significance stars above the bars with stars based on p-value
+            if p_value < 0.001:
+                significance = '***'
+            elif p_value < 0.01:
+                significance = '**'
+            elif p_value < 0.05:
+                significance = '*'
+
+            ax.text(col, height, significance, fontsize=12, color='black', ha='center')
+    
+    # Other styling and formatting
+    plt.legend(title='')
+    leg = plt.legend()
+    for text in leg.get_texts():
+        text.set_color('#636466')
+    
+    ax.xaxis.label.set_color('#636466')
+    ax.yaxis.label.set_color('#636466')
+    ax.tick_params(axis='x', colors='#636466')
+    ax.tick_params(axis='y', colors='#636466')
+    
+    ax.set_xlabel('Syllables', loc='left')
+    ax.set_ylabel('Number of appearances', loc='top')
+    ax.set_title('Syllable enrichment of Unsupervised Analysis: Probetest', loc='left', color='#636466')
+    
+    plt.ylim(0, 1200)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    return ax
+
+
+def plot_pca(ax=None):
+    
+    df = counts_df()
     
     x, y = standarize_the_data(df)
     finalDf, pca = pca_projection_2D(x, df)
@@ -311,7 +436,7 @@ def plot_pca(ax=None):
     return ax
     
     
-plot_pca(ax=None)
+# plot_pca(ax=None)
 
 
 
