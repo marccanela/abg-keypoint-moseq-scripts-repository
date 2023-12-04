@@ -7,3 +7,7 @@ To get started with these personalized Keypoint MoSeq scripts, you may start by 
 ```bash
 git clone https://github.com/marccanela/abg-keypoint-moseq-scripts-repository.git
 ```
+## Examples of plots
+![PCA plots generated with Keypoint-moseq data](https://github.com/marccanela/abg-keypoint-moseq-scripts-repository/blob/main/pca_examples_keypoint_moseq.PNG)
+![Graphs generated with Keypoint-moseq data](https://github.com/marccanela/abg-keypoint-moseq-scripts-repository/blob/main/graph_examples_keypoint_moseq.PNG)
+![Statistics generated with Keypoint-moseq data](https://github.com/marccanela/abg-keypoint-moseq-scripts-repository/blob/main/statistics_examples_keypoint_moseq.PNG)
