@@ -8,8 +8,8 @@ import csv
 import pandas as pd
 import numpy as np
 
-from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
 import matplotlib.pyplot as plt
@@ -163,58 +163,57 @@ def tsne(ax=None):
     
     df = counts_df()
     
-    df.info()
-    df.describe()    
+    # df.info()
+    # df.describe()    
     
     X = df.iloc[:,:-1]
     y = df.iloc[:,-1]
-    
-    label_encoder = LabelEncoder()
-    y_encoded = pd.Series(label_encoder.fit_transform(df.target))
-    y_encoded.value_counts()
     
     std_scaler = StandardScaler()
     X_scaled = std_scaler.fit_transform(X)
     
     tsne = TSNE(n_components=2, init="random", learning_rate="auto", random_state=42)
-    X_reduced = tsne.fit_transform(X) # Without scaling
+    X_reduced = tsne.fit_transform(X_scaled) 
     
-    return X_reduced, y, y_encoded
+    return X_reduced, y
 
 
-def plot_digits(min_distance=0.04, images=None, figsize=(13, 10)):
+# X_reduced, y = tsne()
+def plot_digits(X_reduced, y, just_plot='paired', plot_by='target', ax=None):
     
-    X_reduced, y, y_encoded = tsne()
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10,10))
+            
+    df_reduced = pd.DataFrame(X_reduced, columns=['z1', 'z2'])
+    df_reduced['target'] = y
+    df_reduced['period'] = df_reduced.target.str.split(' ').str[0]
+    df_reduced['learning'] = df_reduced.target.str.split(' ').str[1]
+    df_reduced['control'] = df_reduced.target.str.split(' ').str[2]
+    df_reduced = df_reduced[df_reduced.control == just_plot]
+
+    blue = '#194680'
+    red = '#801946'
+    grey = '#636466'
+    soft_grey = '#D3D3D3'
     
-    # Now we create the list of coordinates of the digits plotted so far.
-    # We pretend that one is already plotted far away at the start, to
-    # avoid `if` statements in the loop below
-    neighbors = np.array([[11., 11.]])
-    # The rest should be self-explanatory
-    plt.figure(figsize=figsize)
-    cmap = plt.cm.jet
-    digits = np.unique(y)
-    for digit in range(len(digits)):        
-        plt.scatter(X_reduced[y == digits[digit], 0], X_reduced[y == digits[digit], 1],
-                    c=[cmap(float(digit) / 12)], alpha=0.5)
-    plt.axis("off")
-    ax = plt.gca()  # get current axes
-    for index, image_coord in enumerate(X_reduced):
-        closest_distance = np.linalg.norm(neighbors - image_coord, axis=1).min()
-        if closest_distance > min_distance:
-            neighbors = np.r_[neighbors, [image_coord]]
-            if images is None:
-                plt.text(image_coord[0], image_coord[1], str(y[index]),
-                         color=cmap(float(y_encoded[index]) / 12),
-                         fontdict={"weight": "bold", "size": 16})
-            else:
-                image = images[index].reshape(28, 28)
-                imagebox = AnnotationBbox(OffsetImage(image, cmap="binary"),
-                                          image_coord)
-                ax.add_artist(imagebox)
-
-
-
+    color_dict = {
+        'Before: direct paired': soft_grey,
+        'During: direct paired': red,
+        'Before: mediated paired': grey,
+        'During: mediated paired': blue,
+    }
+    for tag in y.values:
+        if tag not in color_dict.keys():
+            color_dict[tag] = soft_grey
+    
+    labels, uniques = pd.factorize(df_reduced[plot_by])
+    for label in uniques:
+        subset = df_reduced[df_reduced[plot_by] == label]
+        ax.scatter(subset['z1'], subset['z2'], label=label, c=color_dict[label])
+    
+    ax.axis("off")
+    
+    return ax
 
 
 
