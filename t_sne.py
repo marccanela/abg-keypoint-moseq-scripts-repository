@@ -8,6 +8,11 @@ import csv
 import pandas as pd
 import numpy as np
 
+from scipy.stats import pearsonr
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
+import networkx as nx
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -159,6 +164,68 @@ def counts_df():
     return df
 
 
+def correlations(X):
+    
+    # First check if there's multicollineality
+    # VIF=1 indicates no multicollinearity, VIF>5-10 suggests high multicollinearity 
+    X_const = add_constant(X)
+    vif_data = pd.DataFrame()
+    vif_data["Variable"] = X_const.columns
+    vif_data["VIF"] = [variance_inflation_factor(X_const.values, i) for i in range(X_const.shape[1])]
+    print(vif_data)
+    
+    high_vif = vif_data.Variable[vif_data.VIF > 5][1:]
+    filtered_X = X.filter(items=high_vif, axis=1)
+    
+    corr_matrix = filtered_X.corr()
+    significant_pairs = {}
+    p_val_threshold = 0.05
+    corr_coeff_threshold = 0.7
+
+    # Loop through each pair of columns in the correlation matrix
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i+1, len(corr_matrix.columns)):
+            col1 = corr_matrix.columns[i]
+            col2 = corr_matrix.columns[j]
+            
+            # Calculate correlation coefficient and p-value
+            corr_coeff, p_val = pearsonr(filtered_X[col1], filtered_X[col2])
+            
+            # Check if both the p-value and correlation coefficient meet the thresholds
+            if p_val < p_val_threshold and abs(corr_coeff) > corr_coeff_threshold:
+                significant_pairs[(col1, col2)] = (corr_coeff, p_val)
+    
+    # Create a set of unique significant pairs without directionality
+    unique_significant_pairs = set()
+    
+    for pair in significant_pairs:
+        unique_significant_pairs.add(tuple(sorted(pair)))
+        
+    # Create a graph using networkx
+    G = nx.Graph()
+    
+    # Add nodes (instances) to the graph
+    G.add_nodes_from(filtered_X.columns)
+    
+    # Add edges (significant pairs) to the graph
+    for pair in unique_significant_pairs:
+        G.add_edge(pair[0], pair[1])
+    
+    # Find connected components in the graph
+    connected_components = list(nx.connected_components(G))
+    
+    # Combine features listed in connected_components into new features
+    for idx, component in enumerate(connected_components):
+        # Create a new feature by taking the mean of the features in the connected component
+        new_feature_name = f"Group_{idx + 1}"
+        X[new_feature_name] = X[list(component)].mean(axis=1)
+        
+        # Drop the old features in the connected component
+        X.drop(list(component), axis=1, inplace=True)
+    
+    return X
+
+
 def tsne(ax=None):
     
     df = counts_df()
@@ -168,6 +235,27 @@ def tsne(ax=None):
     
     X = df.iloc[:,:-1]
     y = df.iloc[:,-1]
+    
+    # Look for significant correlations and combine features
+    #X = correlations(X) 
+    
+        
+    # List of columns to sum
+    cols = [
+        ['0','1','6','13'],
+        ['2','10','11','12','14','22','28','29','32','33','34','35','36','37'],
+        ['4','7','15','16','18','21','24'],
+            ]
+    
+    for col in cols:
+        # Create a new column with the sum
+        X[str(col)] = X[col].sum(axis=1)
+    
+        # Delete the old columns
+        X = X.drop(columns=col)
+        
+    # Change feature titles to integers
+    X.columns = range(len(X.columns))
     
     std_scaler = StandardScaler()
     X_scaled = std_scaler.fit_transform(X)
@@ -179,7 +267,7 @@ def tsne(ax=None):
 
 
 # X_reduced, y = tsne()
-def plot_digits(X_reduced, y, just_plot='paired', plot_by='target', ax=None):
+def plot_digits(X_reduced, y, just_plot=['super_specific', 'mediated paired'], plot_by='target', ax=None):
     
     if ax is None:
         fig, ax = plt.subplots(figsize=(10,10))
@@ -189,7 +277,8 @@ def plot_digits(X_reduced, y, just_plot='paired', plot_by='target', ax=None):
     df_reduced['period'] = df_reduced.target.str.split(' ').str[0]
     df_reduced['learning'] = df_reduced.target.str.split(' ').str[1]
     df_reduced['control'] = df_reduced.target.str.split(' ').str[2]
-    df_reduced = df_reduced[df_reduced.control == just_plot]
+    df_reduced['super_specific'] = df_reduced.target.str.split(': ').str[-1]    
+    df_reduced = df_reduced[df_reduced[just_plot[0]] == just_plot[1]]
 
     blue = '#194680'
     red = '#801946'
