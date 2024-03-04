@@ -6,16 +6,14 @@ Created on Mon Jan  8 11:48:13 2024
 import os
 import csv
 import pandas as pd
-import numpy as np
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 
-directory = "/Users/mcanela/Downloads/keypoint_data_1/"
+# directory = "/Users/mcanela/Downloads/keypoint_data_2/"
+directory = '//folder/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_2/'
 
 
 def get_syllable_list(csv_path, total_bins, bin_num):
@@ -31,6 +29,24 @@ def get_syllable_list(csv_path, total_bins, bin_num):
         
     return syllables
 
+
+def combining_syllables(df):
+    
+    # List of columns to sum
+    cols = [
+        ['0','1','6','13'],
+        ['2','10','11','12','14','22','28','29','32','33','34','35','36','37'],
+        ['4','7','15','16','18','21','24'],
+            ]
+    
+    for col in cols:
+        # Create a new column with the sum
+        df[str(col)] = df[col].sum(axis=1)
+    
+        # Delete the old columns
+        df = df.drop(columns=col)
+    
+    return df
 
 def count_frames_syllable(total_bins, bin_num): #bin_num starting from zero
     
@@ -173,7 +189,7 @@ def tsne(ax=None):
     X_scaled = std_scaler.fit_transform(X)
     
     tsne = TSNE(n_components=2, init="random", learning_rate="auto", random_state=42)
-    X_reduced = tsne.fit_transform(X_scaled) 
+    X_reduced = tsne.fit_transform(X) 
     
     return X_reduced, y
 

@@ -16,7 +16,7 @@ from sklearn.decomposition import PCA
 from scipy.stats import wasserstein_distance
 from scipy.stats import mannwhitneyu
 
-directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_1/"
+directory = "//FOLDER/becell/Lab Projects/ERCstG_HighMemory/Data/Marc/1) SOC/2023-07a08 SOC Controls_males/Keypoint analysis/keypoint_data_2/"
 
 
 def get_syllable_list(csv_path, total_bins, bin_num):
@@ -84,16 +84,14 @@ def count_frames_syllable(total_bins, bin_num): #bin_num starting from zero
     # Sort by order all columns
     df.columns = df.columns.astype(int)
     df = df.reindex(sorted(df.columns), axis=1)
-    df = df.loc[:, 0:39] # Select only x syllables of the dendrogram
+    df = df.loc[:, 0:25] # Select only x syllables of the dendrogram
     df.columns = df.columns.astype(str)
     
-    # Drop artifact columns
-    # df = df.drop('3', axis=1)
-    # df = df.drop('9', axis=1)
-    # df = df.drop('20', axis=1)
-    # df = df.drop('23', axis=1)
+    # Drop artifact columns (keypoint_data_2)
+    # df = df.drop('6', axis=1)
+    # df = df.drop('16', axis=1)
     
-    # Combining similar syllables into one
+    # Combining similar syllables into one (keypoint_data_2)
     # df = combining_syllables(df)
     
     # Upload target (aka, conditions or group)
@@ -279,10 +277,7 @@ def enrichment_plot(ax=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(10,6))
         
-    # blue color storytelling = #194680
-    # red color storytelling = #801946
-    # grey color storytelling = #636466
-    custom_palette = ['#636466', '#194680']
+    custom_palette = [grey_stark, blue]
     sns.set(style="whitegrid")
     sns.set_palette(custom_palette)
     
@@ -308,7 +303,8 @@ def enrichment_plot(ax=None):
             elif p_value < 0.05:
                 significance = '*'
 
-            ax.text(col, height, significance, fontsize=12, color='black', ha='center')
+            col_index = numeric_columns.columns.get_loc(col)
+            ax.text(col_index, height, significance, fontsize=12, color='black', ha='center')
     
     # Other styling and formatting
     plt.legend(title='')
@@ -332,10 +328,16 @@ def enrichment_plot(ax=None):
     
     return ax
 
+# Define colors
+white = '#FFFFFF'
+grey_soft = '#D3D3D3'
+grey_stark = '#636466'
+blue = '#194680'
+red = '#801946'
 
-def plot_pca(ax=None):
-    
-    df = counts_df()
+# df = counts_df()
+
+def plot_pca(df, ax=None):
     
     x, y = standarize_the_data(df)
     finalDf, pca = pca_projection_2D(x, df)
@@ -351,33 +353,30 @@ def plot_pca(ax=None):
                'During: direct paired', 'During: mediated paired',
                'During: direct unpaired', 'During: mediated unpaired',
                'During: direct no-shock', 'During: mediated no-shock']
-    colors = ['#FFFFFF00', '#FFFFFF00',
-              '#FFFFFF00', '#FFFFFF00',
-              '#FFFFFF00', '#636466',
-              '#FFFFFF00', '#FFFFFF00',
-              '#FFFFFF00', '#FFFFFF00',
-              '#FFFFFF00', '#194680']
-    
-    # blue color storytelling = #194680
-    # red color storytelling = #801946
-    # grey color storytelling = #636466
+    colors = [grey_soft, grey_stark,
+              white, white,
+              white, white,
+              red, blue,
+              white, white,
+              white, white]
     
     sns.set_theme(style="whitegrid")
     ax.yaxis.grid(True)
     ax.xaxis.grid(True)
+    ax.axis('off') # Turn axis off
     
-    # Grey color
-    ax.xaxis.label.set_color('#636466')
-    ax.yaxis.label.set_color('#636466')
-    ax.tick_params(axis='x', colors='#636466')
-    ax.tick_params(axis='y', colors='#636466')
+    # Define colors of plot elements
+    ax.xaxis.label.set_color(white)
+    ax.yaxis.label.set_color(white)
+    ax.tick_params(axis='x', colors=white)
+    ax.tick_params(axis='y', colors=white)
 
-    ax.set_xlabel('PC1 (EV: ' + str(pc1)[:4] + ')', loc='left')
-    ax.set_ylabel('PC2 (EV: ' + str(pc2)[:4] + ')', loc='top')
-    ax.set_title(title, loc = 'left', color='#636466')
+    # ax.set_xlabel('PC1 (EV: ' + str(pc1)[:4] + ')', loc='left')
+    # ax.set_ylabel('PC2 (EV: ' + str(pc2)[:4] + ')', loc='top')
+    # ax.set_title(title, loc = 'left', color=grey_stark)
     
-    plt.xlim(-6,6)
-    plt.ylim(-6,6)
+    # plt.xlim(-10,10)
+    # plt.ylim(-10,10)
     
     # Remove the top and right spines
     ax.spines['top'].set_visible(False)
@@ -388,7 +387,7 @@ def plot_pca(ax=None):
 
     for target, color in zip(targets,colors):
         
-        if color == '#FFFFFF00':
+        if color == white:
             continue  # Skip transparent colors
         
         indicesToKeep = finalDf['target'] == target
@@ -404,23 +403,22 @@ def plot_pca(ax=None):
         cov_matrix = np.cov(finalDf.loc[indicesToKeep, ['principal component 1', 'principal component 2']].T)
         
         # Determine alpha based on transparency
-        alpha = 0.1 if color == '#FFFFFF00' else 0.3
+        alpha = 0.1 if color == white else 0.3
         
         # Plot ellipse around the centroid using the covariance matrix
-        ellipse = Ellipse(xy=centroid, width=np.sqrt(cov_matrix[0, 0])*2, height=np.sqrt(cov_matrix[1, 1])*2,
-                          edgecolor=color, facecolor=color, alpha=alpha, linewidth=1)
-        ax.add_patch(ellipse)
+        # ellipse = Ellipse(xy=centroid, width=np.sqrt(cov_matrix[0, 0])*2, height=np.sqrt(cov_matrix[1, 1])*2,
+        #                   edgecolor=color, facecolor=color, alpha=alpha, linewidth=1)
+        # ax.add_patch(ellipse)
         
-        ellipse = Ellipse(xy=centroid, width=np.sqrt(cov_matrix[0, 0])*3, height=np.sqrt(cov_matrix[1, 1])*3,
-                          edgecolor=color, facecolor=color, alpha=alpha, linewidth=1)
-        ax.add_patch(ellipse)  
+        # ellipse = Ellipse(xy=centroid, width=np.sqrt(cov_matrix[0, 0])*3, height=np.sqrt(cov_matrix[1, 1])*3,
+        #                   edgecolor=color, facecolor=color, alpha=alpha, linewidth=1)
+        # ax.add_patch(ellipse)  
         
         # Add a tag right next to the ellipse
-        tag_x = centroid[0] + np.sqrt(cov_matrix[0, 0])*1.5  # Adjust the x-coordinate for the tag
-        tag_y = centroid[1] + np.sqrt(cov_matrix[1, 1])*1.5  # Adjust the y-coordinate for the tag
-        ax.text(tag_x, tag_y, target, color=color, fontsize=12, weight='bold')
+        # tag_x = centroid[0] + np.sqrt(cov_matrix[0, 0])*1.5  # Adjust the x-coordinate for the tag
+        # tag_y = centroid[1] + np.sqrt(cov_matrix[1, 1])*1.5  # Adjust the y-coordinate for the tag
+        # ax.text(tag_x, tag_y, target, color=color, fontsize=12, weight='bold')
         
-
         # Store the data points for Wasserstein distance calculation
         distribution = finalDf.loc[indicesToKeep, ['principal component 1', 'principal component 2']]
         distributions.append(distribution.values)
@@ -428,7 +426,7 @@ def plot_pca(ax=None):
     # Calculate Wasserstein distance
     wasserstein_dist = wasserstein_distance(distributions[0].ravel(), distributions[1].ravel())
     wasserstein_text = 'Wasserstein distance = ' + str(wasserstein_dist)[:4]
-    ax.text(-5, -5, wasserstein_text, color='#636466', fontsize=11)
+    # ax.text(-5, -5, wasserstein_text, color=grey_stark, fontsize=11)
     
     ax.grid()
     
@@ -436,7 +434,7 @@ def plot_pca(ax=None):
     return ax
     
     
-# plot_pca(ax=None)
+# plot_pca(df, ax=None)
 
 
 
